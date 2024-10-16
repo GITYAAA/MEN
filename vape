@@ -1,0 +1,150 @@
+local vape = {}
+local HttpService = game:GetService("HttpService")
+local components = {}
+
+-- Download Assets from GitHub Pastebin
+function vape:DownloadAsset(url)
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if success then
+        return result
+    else
+        warn("Failed to download asset: " .. url)
+        return nil
+    end
+end
+
+-- Create a Window for GUI
+function vape:CreateWindow(name, size, position)
+    local window = Instance.new("Frame")
+    window.Size = size
+    window.Position = position or UDim2.new(0, 100, 0, 100)
+    window.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    window.BorderSizePixel = 0
+    
+    local title = Instance.new("TextLabel")
+    title.Text = name
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Parent = window
+    
+    window.Parent = game:GetService("CoreGui")
+    
+    return window
+end
+
+-- Create a Button UI
+function vape:CreateButton(parent, text, position, size, callback)
+    local button = Instance.new("TextButton")
+    button.Size = size
+    button.Position = position
+    button.Text = text
+    button.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Parent = parent
+    button.MouseButton1Click:Connect(callback)
+    return button
+end
+
+-- Create a Toggle UI
+function vape:CreateToggle(parent, text, position, size, default, callback)
+    local toggle = Instance.new("TextButton")
+    toggle.Size = size
+    toggle.Position = position
+    toggle.Text = text
+    toggle.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.Parent = parent
+    local isOn = default
+    toggle.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        toggle.Text = text .. (isOn and " [ON]" or " [OFF]")
+        callback(isOn)
+    end)
+    return toggle
+end
+
+-- Create a Slider UI
+function vape:CreateSlider(parent, text, position, size, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = size
+    frame.Position = position
+    frame.Parent = parent
+    
+    local slider = Instance.new("TextButton")
+    slider.Size = UDim2.new(0, 20, 1, 0)
+    slider.Position = UDim2.new((default - min) / (max - min), 0, 0, 0)
+    slider.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    slider.Parent = frame
+
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(1, 0, 1, 0)
+    valueLabel.Text = text .. ": " .. tostring(default)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    valueLabel.Parent = frame
+
+    local dragging = false
+    slider.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    game:GetService("UserInputService").InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if dragging then
+            local mousePos = game:GetService("UserInputService"):GetMouseLocation().X
+            local relativePos = math.clamp((mousePos - frame.AbsolutePosition.X) / frame.AbsoluteSize.X, 0, 1)
+            local value = math.floor(min + (max - min) * relativePos)
+            slider.Position = UDim2.new(relativePos, 0, 0, 0)
+            valueLabel.Text = text .. ": " .. tostring(value)
+            callback(value)
+        end
+    end)
+
+    return slider
+end
+
+-- COMMAND FUNCTIONS TO CREATE BUTTON, TOGGLE, AND SLIDER THROUGH SIMPLE COMMANDS
+
+function vape:AddButton(text, callback)
+    -- Automatically add to main window
+    local parent = components.window or error("No window created. Create a window first.")
+    local position = UDim2.new(0, 10, 0, #components.buttons * 60 + 50) -- stack buttons vertically
+    local size = UDim2.new(0, 200, 0, 50)
+    local button = vape:CreateButton(parent, text, position, size, callback)
+    table.insert(components.buttons, button)
+end
+
+function vape:AddToggle(text, default, callback)
+    -- Automatically add to main window
+    local parent = components.window or error("No window created. Create a window first.")
+    local position = UDim2.new(0, 10, 0, #components.toggles * 60 + #components.buttons * 60 + 100) -- stack toggles after buttons
+    local size = UDim2.new(0, 200, 0, 50)
+    local toggle = vape:CreateToggle(parent, text, position, size, default, callback)
+    table.insert(components.toggles, toggle)
+end
+
+function vape:AddSlider(text, min, max, default, callback)
+    -- Automatically add to main window
+    local parent = components.window or error("No window created. Create a window first.")
+    local position = UDim2.new(0, 10, 0, #components.sliders * 60 + #components.toggles * 60 + #components.buttons * 60 + 150) -- stack sliders after toggles
+    local size = UDim2.new(0, 200, 0, 50)
+    local slider = vape:CreateSlider(parent, text, position, size, min, max, default, callback)
+    table.insert(components.sliders, slider)
+end
+
+-- Initialize component storage for buttons, toggles, sliders
+function vape:CreateMainWindow(name, size, position)
+    components.window = vape:CreateWindow(name, size, position)
+    components.buttons = {}
+    components.toggles = {}
+    components.sliders = {}
+end
+
+return vape
